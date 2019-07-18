@@ -1,0 +1,57 @@
+---
+title: "Iris prediction"
+author: "Qinan Hu"
+date: "7/17/2019"
+output: md_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = "markup", comment = NA, fig.align = "center", fig.height = 5, fig.width = 10)
+```
+## Iris Data Set
+This is probably the most versatile, easy and resourceful dataset in pattern recognition literature. Nothing could be simpler than the Iris dataset to learn classification techniques. If you are totally new to data science, this is your start line. The data has only 150 rows & 4 columns.
+
+Problem: Predict the class of the flower based on available attributes.
+
+## Exploratory analysis
+To find out the best parameters (out of the four) to predict Species, we first plot them by species.
+```{r iris, message = FALSE}
+library(tidyverse)
+data("iris")
+summary(iris)
+iris_summary <- iris %>%
+    gather(key = parameter, value = value, - Species) %>%
+    group_by(Species, parameter) %>%
+    summarize_all(list(mean = mean,sd = sd))
+ggplot(data = iris_summary, aes(x = parameter, y = mean, fill = Species)) +
+    geom_bar(position = position_dodge(), stat = "identity") +
+    geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), position = position_dodge(0.9), width = 0.2) +
+    theme_bw() +
+    labs(title = "Parameter by species", y = "Value")
+```
+
+We then perform anova tests to find out if these parameters significantly differ across species.
+```{r anova}
+summary(aov(Sepal.Length ~ Species, data = iris))
+TukeyHSD(aov(Sepal.Length ~ Species, data = iris))
+summary(aov(Sepal.Width ~ Species, data = iris))
+TukeyHSD(aov(Sepal.Width ~ Species, data = iris))
+summary(aov(Petal.Length ~ Species, data = iris))
+TukeyHSD(aov(Petal.Length ~ Species, data = iris))
+summary(aov(Petal.Width ~ Species, data = iris))
+TukeyHSD(aov(Petal.Width ~ Species, data = iris))
+```
+
+We can tell that all four parameters are significantly different across species. We will use all of them to train our prediction model.
+```{r ML, message = FALSE}
+library(caret)
+set.seed(996)
+iris_random <- sample_n(iris, nrow(iris))
+inTrain <- createDataPartition(y = iris_random$Species, p = 0.75, list = FALSE)
+training <- iris_random[inTrain,]
+testing <- iris_random[-inTrain,]
+
+output <- capture.output(iris_model <- caret::train(Species ~ ., data = training, method = "gbm"))
+iris_prediction <- predict(iris_model, newdata = testing)
+confusionMatrix(iris_prediction, testing$Species)
+```
